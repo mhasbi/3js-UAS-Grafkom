@@ -1,17 +1,449 @@
-<!doctype html>
-<html>
-<head>
-    <title>Rotating mesh - WebGL experiment</title>
-    <style>
-        body {
-            background: #aaa;
-            overflow: hidden;
-        }
-    </style>
-</head>
-<body>
-    <div id="container"></div>
-    <script src="js/three.min.js"></script>
-    <script src="js/main.js"></script>
-</body>
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - lights - hemisphere light</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background-color: #fff;
+				color: #111;
+				margin: 0px;
+				overflow: hidden;
+				font-family: Monospace;
+				font-size: 13px;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+				text-align: center;
+			}
+
+			a {
+				color: #0080ff;
+				text-decoration: none;
+			}
+
+			a:hover {
+				color: #f00;
+			}
+
+			#footer { width: 100%; margin: 2em auto; text-align: center; position: absolute; bottom: 0 }
+			strong { color: red }
+		</style>
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info">
+			
+			Model flamingo, stork,  horse and parrot by <a href="http://mirada.com/">mirada</a> from <a href="http://ro.me">rome</a><br/>
+		</div>
+		
+		<script src="js/three.js"></script>
+
+		<script src="js/Detector.js"></script>
+		<script src="js/dat.gui.min.js"></script>
+		<script src="js/OBJLoader.js"></script>
+
+		<script type="x-shader/x-vertex" id="vertexShader">
+
+			varying vec3 vWorldPosition;
+
+			void main() {
+
+				vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+				vWorldPosition = worldPosition.xyz;
+
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+			}
+
+		</script>
+
+		<script type="x-shader/x-fragment" id="fragmentShader">
+
+			uniform vec3 topColor;
+			uniform vec3 bottomColor;
+			uniform float offset;
+			uniform float exponent;
+
+			varying vec3 vWorldPosition;
+
+			void main() {
+
+				float h = normalize( vWorldPosition + offset ).y;
+				gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
+
+			}
+
+		</script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var camera, scene, renderer, dirLight, hemiLight;
+			var mixers = [];
+			var textureLoader = new THREE.TextureLoader();
+
+			var clock = new THREE.Clock();
+			var spotLight;
+			var datGUI;
+			var guiController;
+			var dirLight;
+			var hemiLight; 
+			var ground;
+			var light1;
+			var light2;
+			var light3;
+			var light4;
+			var tree;
+			init();
+			animate();
+
+			function initLightSource(){
+				hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
+				hemiLight.color.setHSL( 0.6, 1, 0.6 );
+				hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+				hemiLight.position.set( 0, 500, 0 );
+				scene.add( hemiLight );
+			}
+			function initDatGUI(){
+				guiController = new function(){
+					this.spotlightX = -25;
+					this.spotlightY = 40;
+					this.spotlightZ = 35;
+					this.spotLight = true;
+					this.hemiLight = true;
+					this.cameraX = 0;
+					this.cameraY = 0;
+					this.cameraZ = 250;
+					this.pointLight = true;
+				}	
+				datGUI = new dat.GUI();
+				datGUI.add(guiController, 'spotLight');
+				datGUI.add(guiController, 'hemiLight');
+				datGUI.add(guiController, 'pointLight');
+				datGUI.add(guiController, 'spotlightX', -50, 50);
+				datGUI.add(guiController, 'spotlightY', -50, 50);
+				datGUI.add(guiController, 'spotlightZ', -50, 50);
+				datGUI.add(guiController, 'cameraX', -150, 350);
+				datGUI.add(guiController, 'cameraY', -150, 350);
+				datGUI.add(guiController, 'cameraZ', -150, 350);
+				
+			}
+			function initSpotlight(){
+				spotLight = new THREE.SpotLight( 0xffffff );
+				spotLight.position.set( -25, 40, 35 );
+				spotLight.castShadow = true;
+				spotLight.angle = Math.PI / 3;
+				spotLight.penumbra = 0.05;
+				spotLight.decay = 1;
+				spotLight.distance = 200;
+				spotLight.shadow.mapSize.width = 1024;
+				spotLight.shadow.mapSize.height = 1024;
+				spotLight.shadow.camera.near = 1;
+				spotLight.shadow.camera.far = 100;
+				scene.add( spotLight );
+			}
+			function initLightDirection(){
+				dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
+				dirLight.color.setHSL( 0.1, 1, 0.95 );
+				dirLight.position.set( -1, 1.75, 1 );
+				dirLight.position.multiplyScalar( 50 );
+				scene.add( dirLight );
+
+				dirLight.castShadow = true;
+
+				dirLight.shadow.mapSize.width = 2048;
+				dirLight.shadow.mapSize.height = 2048;
+
+				var d = 50;
+
+				dirLight.shadow.camera.left = -d;
+				dirLight.shadow.camera.right = d;
+				dirLight.shadow.camera.top = d;
+				dirLight.shadow.camera.bottom = -d;
+
+				dirLight.shadow.camera.far = 3500;
+				dirLight.shadow.bias = -0.0001;
+			}
+			function initPointLight(){
+				var sphere = new THREE.SphereGeometry( 0.5, 16, 8 );
+				light1 = new THREE.PointLight( 0xff0040, 2, 50 );
+				light1.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xff0040 } ) ) );
+				scene.add( light1 );
+				light2 = new THREE.PointLight( 0x0040ff, 2, 50 );
+				light2.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0x0040ff } ) ) );
+				scene.add( light2 );
+				light3 = new THREE.PointLight( 0x80ff80, 2, 50 );
+				light3.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0x80ff80 } ) ) );
+				scene.add( light3 );
+				light4 = new THREE.PointLight( 0xffaa00, 2, 50 );
+				light4.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xffaa00 } ) ) );
+				scene.add( light4 );
+			}
+			function initGround(){
+				
+				var groundTexture = textureLoader.load( 'grasslight-big.jpg' );
+				groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+				groundTexture.repeat.set( 25, 25 );
+				groundTexture.anisotropy = 16;
+				var groundGeo = new THREE.PlaneBufferGeometry( 10000, 10000 );
+				var groundMat = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x050505, map: groundTexture } );
+				groundMat.color.setHSL( 0.095, 1, 0.75 );
+
+				ground = new THREE.Mesh( groundGeo, groundMat );
+				ground.rotation.x = -Math.PI/2;
+				ground.position.y = -33;
+				scene.add( ground );
+
+				ground.receiveShadow = true;
+			}
+			function initSkydome(){
+				var vertexShader = document.getElementById( 'vertexShader' ).textContent;
+				var fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
+				var uniforms = {
+					topColor:    { value: new THREE.Color( 0x0077ff ) },
+					bottomColor: { value: new THREE.Color( 0xffffff ) },
+					offset:      { value: 33 },
+					exponent:    { value: 0.6 }
+				};
+				//uniforms.topColor.value.copy( hemiLight.color );
+
+				scene.fog.color.copy( uniforms.bottomColor.value );
+
+				var skyGeo = new THREE.SphereGeometry( 4000, 32, 15 );
+				var skyMat = new THREE.ShaderMaterial( { vertexShader: vertexShader, fragmentShader: fragmentShader, uniforms: uniforms, side: THREE.BackSide } );
+
+				var sky = new THREE.Mesh( skyGeo, skyMat );
+				scene.add( sky );
+			}
+			function init() {
+
+				var container = document.getElementById( 'container' );
+				initDatGUI();
+				camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera.position.set( 0, 0, 250 );
+
+				scene = new THREE.Scene();
+
+				scene.fog = new THREE.Fog( 0xffffff, 1, 5000 );
+				scene.fog.color.setHSL( 0.6, 0, 1 );
+				
+				
+				// LIGHTS
+				initLightSource();
+				initLightDirection();
+				initSpotlight();
+				initPointLight();
+				// GROUND
+				initGround();
+
+				// SKYDOME
+
+				initSkydome();
+				
+				// MODEL
+				var loader = new THREE.JSONLoader();
+				var Objloader = new THREE.ObjectLoader();
+				Objloader.load('tree-1-fixed-3.json', function(object){
+					object.position.y = -20;
+					object.position.x = -80;
+					object.position.z = -1;
+					tree = object;
+					scene.add(tree);
+				});
+				loader.load( 'flamingo.js', function( geometry ) {
+
+					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
+					var mesh = new THREE.Mesh( geometry, material );
+
+					var s = 0.25;
+					mesh.scale.set( s, s, s );
+					mesh.position.y = 25;
+					mesh.position.x = 30;
+					mesh.rotation.y = -1;
+
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+
+					scene.add( mesh );
+
+					var mixer = new THREE.AnimationMixer( mesh );
+					mixer.clipAction( geometry.animations[ 0 ] ).setDuration( 1 ).play();
+					mixers.push( mixer );
+
+				} );
+				loader.load( 'stork.js', function( geometry ) {
+
+					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
+					var mesh = new THREE.Mesh( geometry, material );
+
+					var s = 0.15;
+					mesh.scale.set( s, s, s );
+					mesh.position.y = 45;
+					mesh.position.x = -10;
+					mesh.rotation.y = -1;
+
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+
+					scene.add( mesh );
+
+					var mixer = new THREE.AnimationMixer( mesh );
+					mixer.clipAction( geometry.animations[ 0 ] ).setDuration( 1 ).play();
+					mixers.push( mixer );
+
+				} );
+				loader.load( 'parrot.js', function( geometry ) {
+
+					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
+					var mesh = new THREE.Mesh( geometry, material );
+
+					var s = 0.15;
+					mesh.scale.set( s, s, s );
+					mesh.position.y = 40;
+					mesh.position.z = 40;
+					mesh.position.x = 20;
+					mesh.rotation.y = -1;
+
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+
+					scene.add( mesh );
+
+					var mixer = new THREE.AnimationMixer( mesh );
+					mixer.clipAction( geometry.animations[ 0 ] ).setDuration( 1 ).play();
+					mixers.push( mixer );
+
+				} );
+				loader.load( 'horse.js', function( geometry ) {
+
+					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
+					var mesh = new THREE.Mesh( geometry, material );
+
+					var s = 0.25;
+					mesh.scale.set( s, s, s );
+					mesh.position.y = -35;
+					mesh.position.z = 30;
+					mesh.rotation.y = -1;
+
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+
+					scene.add( mesh );
+
+					var mixer = new THREE.AnimationMixer( mesh );
+					mixer.clipAction( geometry.animations[ 0 ] ).setDuration( 1 ).play();
+					mixers.push( mixer );
+
+				} );
+				// RENDERER
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setClearColor( scene.fog.color );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				renderer.gammaInput = true;
+				renderer.gammaOutput = true;
+
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.renderReverseSided = false;
+
+				// STATS
+
+				
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+				if(guiController.spotLight){
+					scene.add(spotLight);
+					spotLight.position.x = guiController.spotlightX;
+					spotLight.position.y = guiController.spotlightY;
+					spotLight.position.z = guiController.spotlightZ;
+				}
+				else{
+					scene.remove(spotLight);
+				}
+				
+				if(guiController.hemiLight){
+					scene.add(hemiLight);
+					scene.add(dirLight);
+				}
+				else{
+					scene.remove(hemiLight);
+					scene.remove(dirLight);
+				}
+				if(guiController.pointLight){
+					scene.add(light1);
+					scene.add(light2);
+					scene.add(light3);
+					scene.add(light4);
+				}
+				else{
+					scene.remove(light1);
+					scene.remove(light2);
+					scene.remove(light3);
+					scene.remove(light4);
+				}
+				ground.rotation.z -= 0.01;
+				tree.position.z -= 0.01;
+				camera.position.x = guiController.cameraX;
+				camera.position.y = guiController.cameraY;
+				camera.position.z = guiController.cameraZ;
+				render();
+
+			}
+
+			function render() {
+
+				var delta = clock.getDelta();
+
+				for ( var i = 0; i < mixers.length; i ++ ) {
+
+					mixers[ i ].update( delta );
+
+				}
+				var time = Date.now() * 0.0005;
+				light1.position.x = Math.sin( time * 0.7 ) * 30;
+				light1.position.y = Math.cos( time * 0.5 ) * 40;
+				light1.position.z = Math.cos( time * 0.3 ) * 30;
+				light2.position.x = Math.cos( time * 0.3 ) * 30;
+				light2.position.y = Math.sin( time * 0.5 ) * 40;
+				light2.position.z = Math.sin( time * 0.7 ) * 30;
+				light3.position.x = Math.sin( time * 0.7 ) * 30;
+				light3.position.y = Math.cos( time * 0.3 ) * 40;
+				light3.position.z = Math.sin( time * 0.5 ) * 30;
+				light4.position.x = Math.sin( time * 0.3 ) * 30;
+				light4.position.y = Math.cos( time * 0.7 ) * 40;
+				light4.position.z = Math.sin( time * 0.5 ) * 30;
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
 </html>

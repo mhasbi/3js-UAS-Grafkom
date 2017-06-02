@@ -10,6 +10,7 @@ function init() {
 
     initMesh();
     initCamera();
+	initGround();
     initLights();
     initRenderer();
 
@@ -32,14 +33,24 @@ function initLights() {
     var light = new THREE.AmbientLight(0xffffff);
     scene.add(light);
 }
+function initGround(){
+	var groundGeo = new THREE.PlaneBufferGeometry( 10000, 10000 );
+	var groundMat = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x050505 } );
+	groundMat.color.setHSL( 0.095, 1, 0.75 );
 
+	var ground = new THREE.Mesh( groundGeo, groundMat );
+	ground.rotation.x = -Math.PI/2;
+	ground.position.y = -33;
+	scene.add( ground );
+
+}
 var mesh = null;
 function initMesh() {
     var loader = new THREE.JSONLoader();
     loader.load('fox.js', function(geometry, materials) {
         mesh = new THREE.Mesh(geometry, new THREE.MeshFaceMaterial(materials));
         mesh.scale.x = mesh.scale.y = mesh.scale.z = 0.75;
-        mesh.translation = THREE.GeometryUtils.center(geometry);
+       // mesh.translation = mesh.center();
         scene.add(mesh);
     });
 }
