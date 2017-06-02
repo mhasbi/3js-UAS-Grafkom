@@ -88,7 +88,7 @@
 			var camera, scene, renderer, dirLight, hemiLight;
 			var mixers = [];
 			var textureLoader = new THREE.TextureLoader();
-
+			var horse_move;
 			var clock = new THREE.Clock();
 			var spotLight;
 			var datGUI;
@@ -118,6 +118,7 @@
 					this.spotlightZ = 35;
 					this.spotLight = true;
 					this.hemiLight = true;
+					this.horse_move = true;
 					this.cameraX = 0;
 					this.cameraY = 0;
 					this.cameraZ = 250;
@@ -133,6 +134,7 @@
 				datGUI.add(guiController, 'cameraX', -150, 350);
 				datGUI.add(guiController, 'cameraY', -150, 350);
 				datGUI.add(guiController, 'cameraZ', -150, 350);
+				datGUI.add(guiController, 'horse_move');
 				
 			}
 			function initSpotlight(){
@@ -188,7 +190,7 @@
 			}
 			function initGround(){
 				
-				var groundTexture = textureLoader.load( 'grasslight-big.jpg' );
+				var groundTexture = textureLoader.load( 'textures/grasslight-big.jpg' );
 				groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
 				groundTexture.repeat.set( 25, 25 );
 				groundTexture.anisotropy = 16;
@@ -257,7 +259,7 @@
 					tree = object;
 					scene.add(tree);
 				});
-				loader.load( 'flamingo.js', function( geometry ) {
+				loader.load( 'models/flamingo.js', function( geometry ) {
 
 					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
 					var mesh = new THREE.Mesh( geometry, material );
@@ -278,7 +280,7 @@
 					mixers.push( mixer );
 
 				} );
-				loader.load( 'stork.js', function( geometry ) {
+				loader.load( 'models/stork.js', function( geometry ) {
 
 					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
 					var mesh = new THREE.Mesh( geometry, material );
@@ -299,7 +301,7 @@
 					mixers.push( mixer );
 
 				} );
-				loader.load( 'parrot.js', function( geometry ) {
+				loader.load( 'models/parrot.js', function( geometry ) {
 
 					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
 					var mesh = new THREE.Mesh( geometry, material );
@@ -321,7 +323,7 @@
 					mixers.push( mixer );
 
 				} );
-				loader.load( 'horse.js', function( geometry ) {
+				loader.load( 'models/horse.js', function( geometry ) {
 
 					var material = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff, shininess: 20, morphTargets: true, vertexColors: THREE.FaceColors, shading: THREE.FlatShading } );
 					var mesh = new THREE.Mesh( geometry, material );
@@ -337,7 +339,7 @@
 
 					scene.add( mesh );
 
-					var mixer = new THREE.AnimationMixer( mesh );
+					mixer = new THREE.AnimationMixer( mesh );
 					mixer.clipAction( geometry.animations[ 0 ] ).setDuration( 1 ).play();
 					mixers.push( mixer );
 
@@ -408,8 +410,12 @@
 					scene.remove(light3);
 					scene.remove(light4);
 				}
+				if(!guiController.horse_move)
+					mixers[3] = 1;
+				else
+					mixers[3] = horse_move;
 				ground.rotation.z -= 0.01;
-				tree.position.z -= 0.01;
+				//tree.position.z -= 0.01;
 				camera.position.x = guiController.cameraX;
 				camera.position.y = guiController.cameraY;
 				camera.position.z = guiController.cameraZ;
@@ -422,8 +428,8 @@
 				var delta = clock.getDelta();
 
 				for ( var i = 0; i < mixers.length; i ++ ) {
-
-					mixers[ i ].update( delta );
+					if(mixers[i] != null)
+						mixers[ i ].update( delta );
 
 				}
 				var time = Date.now() * 0.0005;
